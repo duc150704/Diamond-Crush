@@ -1,54 +1,71 @@
+using System;
 
 public struct GridPosition
 {
-    public int x;
-    public int y;
+    public int Column;
+    public int Row;
 
-    public GridPosition(int x, int y)
+    public static GridPosition Zero = new GridPosition(0, 0);
+
+    public GridPosition(int column, int row)
     {
-        this.x = x;
-        this.y = y;
+        this.Column = column;
+        this.Row = row;
     }
 
     public override string ToString()
     {
-        return $"{x}, {y}";
-    }
-
-    public GridPosition GetNeighbor(DragDirection direction)
-    {
-        switch (direction)
-        {
-            case DragDirection.Left:
-                return GetLeft();
-            case DragDirection.Right:
-                return GetRight();
-            case DragDirection.Down:
-                return GetDown();
-            case DragDirection.Up:
-                return GetUp();
-            default:
-                return this;
-        }
+        return $"{Column}, {Row}";
     }
 
     public GridPosition GetUp()
     {
-        return new GridPosition(x, y + 1);
+        return new GridPosition(Column, Row + 1);
     }
 
     public GridPosition GetLeft()
     {
-        return new GridPosition(x - 1, y);
+        return new GridPosition(Column - 1, Row);
     }    
     
     public GridPosition GetDown()
     {
-        return new GridPosition(x, y - 1);
+        return new GridPosition(Column, Row - 1);
     }    
     
     public GridPosition GetRight()
     {
-        return new GridPosition(x + 1, y);
+        return new GridPosition(Column + 1, Row);
     }
+
+    public static bool operator ==(GridPosition a, GridPosition b)
+    {
+        return a.Column == b.Column && a.Row == b.Row;
+    }
+
+    public static bool operator !=(GridPosition a, GridPosition b)
+    {
+        return a.Column != b.Column || a.Row != b.Row;
+    }
+
+    public static GridPosition operator +(GridPosition a, GridPosition b)
+    {
+        return new GridPosition(a.Column + b.Column, a.Row + b.Row);
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is GridPosition other && Row == other.Row && Column == other.Column;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Column, Row);
+    }
+
+    public static GridPosition operator -(GridPosition a, GridPosition b)
+    {
+        return new GridPosition(a.Column - b.Column, a.Row - b.Row);
+    }
+        
 }

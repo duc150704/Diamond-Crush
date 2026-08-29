@@ -1,28 +1,24 @@
 
-public class GridObject : IOnGrid
+public class GridObject
 {
-    public GridPosition GridPosition { get; private set; }
-    public GridPosition PreviousGrid {  get; private set; }
-    public int ItemID {  get; private set; }
+    public GridPosition GridPosition { get; set; }
+    public int ItemType {  get; set; }
 
-    public GridObject(int itemID)
+    public GridObject(int itemType)
     {
-        ItemID = itemID;
-    }
-
-    public void SetID(int id)
-    {
-        ItemID = id;
+        ItemType = itemType;
     }
 
     public string GetDebugText()
     {
-        return ItemID.ToString();
+        return ItemType.ToString();
     }
 
-    public void SetGridPosition(GridPosition gridPosition)
+    public GridObject Clone()
     {
-        PreviousGrid = this.GridPosition;
-        this.GridPosition = gridPosition;
+        return new GridObject(ItemType)
+        {
+            GridPosition = this.GridPosition,
+        };
     }
 }

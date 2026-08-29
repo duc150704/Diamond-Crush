@@ -5,7 +5,6 @@ using UnityEngine;
 public class DiamondVisual : MonoBehaviour
 {
     private DiamondSO _data;
-
     private Transform _transform;
     private SpriteRenderer _spriteRenderer;
 

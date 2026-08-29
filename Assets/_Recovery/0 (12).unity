@@ -275,29 +275,9 @@ PrefabInstance:
       value: Board
       objectReference: {fileID: 0}
     - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
-      propertyPath: _height
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
       propertyPath: _animationSystem
       value: 
       objectReference: {fileID: 1199919987}
-    - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
-      propertyPath: _datas.Array.size
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
-      propertyPath: '_datas.Array.data[2]'
-      value: 
-      objectReference: {fileID: 11400000, guid: 35e4769b92835af4399daccbe056d698, type: 2}
-    - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
-      propertyPath: '_datas.Array.data[3]'
-      value: 
-      objectReference: {fileID: 11400000, guid: 5caa10ab1a6245049bde1d949d7c123f, type: 2}
-    - target: {fileID: 6070603776189348116, guid: f5ef091d886c0dd459df0efd354b9fe2, type: 3}
-      propertyPath: '_datas.Array.data[4]'
-      value: 
-      objectReference: {fileID: 11400000, guid: d332ebb9f0d1bfe4fa06dd9d06c00295, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -314,18 +294,6 @@ PrefabInstance:
     - target: {fileID: 1163631361133813672, guid: 1d27b252f4251be4eab51e84b100765b, type: 3}
       propertyPath: m_Name
       value: AnimationSystem
-      objectReference: {fileID: 0}
-    - target: {fileID: 3357488720912250775, guid: 1d27b252f4251be4eab51e84b100765b, type: 3}
-      propertyPath: _swapTime
-      value: 0.13
-      objectReference: {fileID: 0}
-    - target: {fileID: 3357488720912250775, guid: 1d27b252f4251be4eab51e84b100765b, type: 3}
-      propertyPath: _removeTime
-      value: 0.16
-      objectReference: {fileID: 0}
-    - target: {fileID: 3357488720912250775, guid: 1d27b252f4251be4eab51e84b100765b, type: 3}
-      propertyPath: _fallDownTime
-      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4555482890531118350, guid: 1d27b252f4251be4eab51e84b100765b, type: 3}
       propertyPath: m_LocalPosition.x

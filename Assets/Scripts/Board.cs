@@ -6,10 +6,7 @@ using UnityEngine;
 public enum BoardState
 {
     Idle,
-    Swap,
-    SwapBack,
-    Fall,
-    Refill
+    Running,
 }
 
 public class Board : MonoBehaviour
@@ -22,7 +19,7 @@ public class Board : MonoBehaviour
     [SerializeField] private AnimationSystem _animationSystem;
     [SerializeField] private List<DiamondSO> _datas;
 
-    private CustomizeGrid<GridObject> _grid;
+    private CustomizedGrid<GridObject> _grid;
     private TextMeshPro[,] _debugTexts;
     private Vector3 _clickedPosition;
     private Vector3 _dragDirection;
@@ -31,7 +28,7 @@ public class Board : MonoBehaviour
 
     private void Awake()
     {
-        _grid = new CustomizeGrid<GridObject>(_width, _height, _cellSize, _centerPosition);
+        _grid = new CustomizedGrid<GridObject>(_width, _height, _cellSize, _centerPosition);
         _debugTexts = new TextMeshPro[_width, _height];
     }
 
@@ -45,27 +42,35 @@ public class Board : MonoBehaviour
         _grid.OnGridValueChanged -= HandleValueChanged;
     }
 
-    void Start()
+    async void Start()
     {
+        _state = BoardState.Running;
         for (int i = 0; i < _width; i++)
         {
             for(int j = 0; j < _height; j++)
             {
-                _grid.SetValue(new GridPosition(i, j), new GridObject(NETUltilities.GetRandomInt(1, 4)));
+                GridPosition pos = new GridPosition(i, j);
+                _grid.Set(pos, new GridObject(NETUltilities.GetRandomInt(0, _datas.Count)));
+                _grid.Get(pos).GridPosition = pos;
             }
         }
 
         _animationSystem.SetUp(_grid, _datas);
 
         ShowDebugLine();
-        ShowDebugText();
+        //ShowDebugText();
 
-        Init().Forget();
+        await Init();
+
+        await UniTask.Delay(1000);
+
+        await FirstCheck();
+        _state = BoardState.Idle;
     }
 
-    async void Update()
+    void Update()
     {
-        if (_state == BoardState.Idle)
+        if (_state != BoardState.Idle)
             return;
 
         if (Input.GetKeyDown(KeyCode.Mouse0))
@@ -75,80 +80,126 @@ public class Board : MonoBehaviour
 
         if (Input.GetKeyUp(KeyCode.Mouse0))
         {
-            DragDirection direction = DragDirectionCalculate();
-            GridObject clickedObj = _grid.GetValue(_clickedPosition);
-
-            if (_dragDirection.magnitude >= _cellSize / 2 && clickedObj != null)
-            {
-                
-                GridObject targetObj = _grid.GetValue(clickedObj.GridPosition.GetNeighbor(direction));
-
-                _grid.Swap(clickedObj.GridPosition, targetObj.GridPosition);
-                await _animationSystem.Swap(clickedObj, targetObj);
-
-                List<MatchResult> res = MatchChecker.FindMatches(_grid);
-
-                if(res.Count <= 0)
-                {
-                    _grid.Swap(clickedObj.GridPosition, targetObj.GridPosition);
-                    await _animationSystem.Swap(clickedObj, targetObj);
-                    return;
-                }
-
-                List<GridObject> matched = new List<GridObject>();
-
-
-                foreach (var item in res)
-                {
-                    foreach (var item1 in item.MatchedGridPosition)
-                    {
-                        matched.Add(_grid.GetValue(item1));
-                        _grid.SetValue(item1, null);
-                    }
-                }
-
-                await _animationSystem.Remove(matched);
-
-                //GravitySystem.Apply(_grid);
-
-                //List<GridPosition> a = RefillSystem.FindRefillPosition(_grid);
-
-                //RefillSystem.Fill(_grid, a, 0, 5);
-            }
+            ProcessInput().Forget();
         }
     }
 
-    private void MatchResolves()
+    private async UniTask FirstCheck()
     {
-
+        MatchFinalResult mfr = Match3Logic.FindMatches(_grid);
+        await ResolveCascade(mfr);
     }
 
-    private DragDirection DragDirectionCalculate()
+    private async UniTask ProcessInput()
     {
-        _dragDirection = UnityUltilities.GetMousePosition() - _clickedPosition;
-        DragDirection dragDir = DragDirection.Zero;
+        _state = BoardState.Running;
 
-        if (_dragDirection.magnitude >= _cellSize)
+        if(!TryGetSwapObjects(out GridObject clickedObj, out GridObject targetObj))
         {
-            dragDir = DirectionNormalization.Normalize(_dragDirection);
+            _state = BoardState.Idle;
+            return;
+        }
+            
+        await TrySwap(clickedObj, targetObj);
+
+        _state = BoardState.Idle;
+    }
+
+    private async UniTask ResolveCascade(MatchFinalResult mfr)
+    {
+        int cascade = 0;
+
+        while (mfr.HasMatches)
+        {
+            await ResolveMatch(mfr);
+            cascade++;
+
+            mfr = Match3Logic.FindMatches(_grid);
+
+            await UniTask.Delay(200);
+        }
+    }
+
+    private async UniTask ResolveMatch(MatchFinalResult mfr)
+    {
+        Match3Logic.RemoveMatches(_grid, mfr);
+        List<FallResult> fallResults = Match3Logic.ApplyGravity(_grid);
+        List<RefillablePositionData> refillablePosition = Match3Logic.FindRefillablePosition_2(_grid);
+        RefillResult refillResult = Match3Logic.Fill(_grid, refillablePosition, 0, _datas.Count);
+
+        await _animationSystem.Remove(mfr);
+        _animationSystem.FallDown(fallResults).Forget();
+        await _animationSystem.Refill(refillResult);
+    }
+
+    private async UniTask TrySwap(GridObject clickedObj, GridObject targetObj)
+    {
+        SwapResult swapResult = Match3Logic.Swap(_grid, clickedObj.GridPosition, targetObj.GridPosition);
+
+        if (!swapResult.IsSuccess)
+            return;
+
+        await _animationSystem.Swap(swapResult);
+
+        MatchFinalResult matchFinalResult = Match3Logic.FindMatches(_grid);
+
+        if (!matchFinalResult.HasMatches)
+        {
+            swapResult = Match3Logic.Swap(_grid, clickedObj.GridPosition, targetObj.GridPosition);
+            await _animationSystem.Swap(swapResult);
+            return;
         }
 
-        return dragDir;
+        await ResolveCascade(matchFinalResult);
+    }
+
+    private bool TryGetSwapObjects(out GridObject clickedObj, out GridObject targetObj)
+    {
+        targetObj = null;
+        clickedObj = null;
+
+        if (!_grid.TryGet(_grid.WorldToGrid(_clickedPosition), out clickedObj) || clickedObj == null)
+            return false;
+
+        _dragDirection = UnityUltilities.GetMousePosition() - _clickedPosition;
+        GridPosition offset = GridOffset.GetFromVector(_dragDirection);
+
+        if (_dragDirection.magnitude <= _cellSize / 2 || offset == GridOffset.Zero)
+            return false;
+
+        if (!_grid.TryGet(clickedObj.GridPosition + offset, out targetObj) || targetObj == null)
+            return false;
+
+        return true;
     }
 
     private async UniTask Init()
     {
         List<GridObject> objs = _grid.GetAllValue();
         List<SpawnData> spawnData = new List<SpawnData>();
-
-        await UniTask.Delay(2000);
-
+        List<FallResult> fallDatas = new List<FallResult>();
         foreach (var obj in objs)
         {
-            spawnData.Add(new SpawnData(obj, _grid.GridToWorld(obj.GridPosition) + new Vector3(0, _height)));
+            spawnData.Add(
+                new SpawnData()
+                {
+                    GridObject = obj,
+                    Position = obj.GridPosition + new GridPosition(0, _grid.Rows)
+                }
+            );
+
+            fallDatas.Add(
+                new FallResult()
+                {
+                    GridObject = obj,
+                    TargetPosition = obj.GridPosition,
+                }    
+            );
         }
+
         await _animationSystem.Spawn(spawnData);
-        await _animationSystem.Fall(objs, DG.Tweening.Ease.OutSine);
+        await UniTask.Delay(200);
+        await _animationSystem.FallDown(fallDatas);
     }
 
     private void ShowDebugLine()
@@ -186,7 +237,7 @@ public class Board : MonoBehaviour
         {
             for(int j = 0; j < _height; j++)
             {
-                GridObject obj = _grid.GetValue(new GridPosition(i, j));
+                GridObject obj = _grid.Get(new GridPosition(i, j));
                 if (obj == null)
                     continue;
                 Vector3 position = _grid.GridToWorld(obj.GridPosition);
@@ -197,15 +248,15 @@ public class Board : MonoBehaviour
 
     private void HandleValueChanged(GridPosition gridPosition)
     {
-        if (_debugTexts[gridPosition.x, gridPosition.y] == null)
+        if (_debugTexts[gridPosition.Column, gridPosition.Row] == null)
             return;
 
-        if (_grid.GetValue(gridPosition) == null)
+        if (_grid.Get(gridPosition) == null)
         {
-            _debugTexts[gridPosition.x, gridPosition.y].text = "null";
+            _debugTexts[gridPosition.Column, gridPosition.Row].text = "null";
             return;
         }
 
-        _debugTexts[gridPosition.x, gridPosition.y].text = _grid.GetValue(gridPosition).GetDebugText();
+        _debugTexts[gridPosition.Column, gridPosition.Row].text = _grid.Get(gridPosition).GetDebugText();
     }
 }
