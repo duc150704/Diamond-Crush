@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class CustomizedGrid<T>
@@ -24,6 +23,14 @@ public class CustomizedGrid<T>
 
         Vector3 gridCenter = ((GridToWorld(new GridPosition(0, 0)) + GridToWorld(new GridPosition(columns - 1, rows - 1)))) / 2;
         _translationVector = centerPostion - gridCenter;
+    }
+
+    public void SetData(List<GridData<T>> data)
+    {
+        foreach (var item in data)
+        {
+            TrySet(item.GridPosition, item.Value);
+        }
     }
 
     public bool Swap(GridPosition p1, GridPosition p2)
@@ -115,6 +122,13 @@ public class CustomizedGrid<T>
     {
         CustomizedGrid<T> cloneObj = new CustomizedGrid<T>(Columns, Rows, CellSize);
         
+        for(int i = 0; i < Columns; i++)
+        {
+            for (int j = 0; j < Rows; j++)
+            {
+                cloneObj._values[i, j] = UnityUltilities.Clone<T>(this._values[i, j]);
+            }
+        }
 
         return cloneObj;
     }

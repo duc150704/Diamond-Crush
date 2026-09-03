@@ -16,9 +16,12 @@ public class Board : MonoBehaviour
     [SerializeField] private float _cellSize;
     [SerializeField] private Vector3 _centerPosition;
 
-    [SerializeField] private AnimationSystem _animationSystem;
     [SerializeField] private List<DiamondSO> _datas;
+    [SerializeField] private AnimationView _view;
+    [SerializeField] private AnimationConfig _config;
 
+    private AnimationModel _model;
+    private AnimationPresenter _animationPresenter;
     private CustomizedGrid<GridObject> _grid;
     private TextMeshPro[,] _debugTexts;
     private Vector3 _clickedPosition;
@@ -45,20 +48,15 @@ public class Board : MonoBehaviour
     async void Start()
     {
         _state = BoardState.Running;
-        for (int i = 0; i < _width; i++)
-        {
-            for(int j = 0; j < _height; j++)
-            {
-                GridPosition pos = new GridPosition(i, j);
-                _grid.Set(pos, new GridObject(NETUltilities.GetRandomInt(0, _datas.Count)));
-                _grid.Get(pos).GridPosition = pos;
-            }
-        }
 
-        _animationSystem.SetUp(_grid, _datas);
+        List<GridData<GridObject>> data = Match3Logic.GenerateGridData(_width, _height, _datas);
+        _grid.SetData(data);
+
+        _model = new AnimationModel(_grid, _datas);
+        _animationPresenter = new AnimationPresenter(_view, _model, _config);
 
         ShowDebugLine();
-        //ShowDebugText();
+        ShowDebugText();
 
         await Init();
 
@@ -84,6 +82,7 @@ public class Board : MonoBehaviour
         }
     }
 
+
     private async UniTask FirstCheck()
     {
         MatchFinalResult mfr = Match3Logic.FindMatches(_grid);
@@ -101,8 +100,20 @@ public class Board : MonoBehaviour
         }
             
         await TrySwap(clickedObj, targetObj);
-
+        await Hint();
         _state = BoardState.Idle;
+    }
+
+    private async UniTask Hint()
+    {
+        CustomizedGrid<GridObject> clone = _grid.Clone();
+        BestMove move = Match3Logic.FindBestMove(clone);
+
+        foreach (var item in move.Result)
+        {
+            move.Objects.Add(_grid.Get(item));    
+        }
+        await _animationPresenter.Hint(move.Objects);
     }
 
     private async UniTask ResolveCascade(MatchFinalResult mfr)
@@ -127,9 +138,9 @@ public class Board : MonoBehaviour
         List<RefillablePositionData> refillablePosition = Match3Logic.FindRefillablePosition_2(_grid);
         RefillResult refillResult = Match3Logic.Fill(_grid, refillablePosition, 0, _datas.Count);
 
-        await _animationSystem.Remove(mfr);
-        _animationSystem.FallDown(fallResults).Forget();
-        await _animationSystem.Refill(refillResult);
+        await _animationPresenter.Remove(mfr.MatchedObjs);
+        _animationPresenter.Fall(fallResults).Forget();
+        await _animationPresenter.Refill(refillResult);
     }
 
     private async UniTask TrySwap(GridObject clickedObj, GridObject targetObj)
@@ -139,14 +150,13 @@ public class Board : MonoBehaviour
         if (!swapResult.IsSuccess)
             return;
 
-        await _animationSystem.Swap(swapResult);
-
+        await _animationPresenter.Swap(swapResult.FirstObject, swapResult.SecondObject);
         MatchFinalResult matchFinalResult = Match3Logic.FindMatches(_grid);
 
         if (!matchFinalResult.HasMatches)
         {
             swapResult = Match3Logic.Swap(_grid, clickedObj.GridPosition, targetObj.GridPosition);
-            await _animationSystem.Swap(swapResult);
+            await _animationPresenter.Swap(swapResult.FirstObject, swapResult.SecondObject);
             return;
         }
 
@@ -184,7 +194,8 @@ public class Board : MonoBehaviour
                 new SpawnData()
                 {
                     GridObject = obj,
-                    Position = obj.GridPosition + new GridPosition(0, _grid.Rows)
+                    Position = obj.GridPosition + new GridPosition(0, _grid.Rows),
+                    ObjectType = obj.ItemType,
                 }
             );
 
@@ -197,9 +208,8 @@ public class Board : MonoBehaviour
             );
         }
 
-        await _animationSystem.Spawn(spawnData);
-        await UniTask.Delay(200);
-        await _animationSystem.FallDown(fallDatas);
+        _animationPresenter.Spawn(spawnData);
+        await _animationPresenter.Fall(fallDatas);
     }
 
     private void ShowDebugLine()

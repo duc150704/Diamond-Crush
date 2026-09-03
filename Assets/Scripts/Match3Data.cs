@@ -4,6 +4,7 @@ public struct SpawnData
 {
     public GridObject GridObject;
     public GridPosition Position;
+    public int ObjectType;
 }
 
 public struct SwapResult
@@ -32,8 +33,37 @@ public struct RefillablePositionData
     public GridPosition PositionOffset;
 }
 
-public struct PossibleMove
+public class Move
 {
-    public GridPosition from;
-    public GridPosition to;
+    public GridPosition From;
+    public GridPosition To;
+    public int MatchCount => Results.Count;
+    public List<MatchResult> Results { get; set; } = new();
+
+    public MatchResult GetMatch()
+    {
+        MatchResult matchResult = Results[0];
+        for (int i = 1; i < Results.Count; i++)
+        {
+            if (Results[i].MatchedGridPositions.Count > matchResult.MatchedGridPositions.Count)
+                matchResult = Results[i];
+        }
+
+        return matchResult;
+    }
+}
+
+public class BestMove
+{
+    public GridPosition From;
+    public GridPosition To;
+    public List<GridPosition> Result  { get; set; } = new();
+    public List<GridObject> Objects { get; set; } = new();
+    public int ResultLength => Result.Count;
+}
+
+public class GridData<T>
+{
+    public GridPosition GridPosition { get; set; }
+    public T Value { get; set; }
 }

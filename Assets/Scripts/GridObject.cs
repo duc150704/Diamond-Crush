@@ -1,5 +1,4 @@
-
-public class GridObject
+public class GridObject : ICloneable<GridObject>
 {
     public GridPosition GridPosition { get; set; }
     public int ItemType {  get; set; }

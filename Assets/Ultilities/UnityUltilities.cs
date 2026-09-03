@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 
@@ -24,5 +25,21 @@ public static class UnityUltilities
         tmp.fontSize = textSize;
 
         return tmp;
+    }
+
+    public static T Clone<T>(T value)
+    {
+        if (value == null)
+            return value;
+
+        Type type = typeof(T);
+        if (type.IsValueType)
+            return value;
+
+        if (value is ICloneable<T> cloneable)
+            return (T)cloneable.Clone();
+
+        Debug.Log("Khong Clone duoc!");
+        return value;
     }
 }

@@ -8,10 +8,167 @@ public enum LineDirection
 
 public static class Match3Logic
 {
-    //public static List<PossibleMove> FindPossibleMoves(CustomizedGrid<GridObject> grid)
-    //{
+    public static void ShuffeGrid(CustomizedGrid<GridObject> grid , List<DiamondSO> data)
+    {
+        CustomizedGrid<GridObject> clone = grid.Clone();
+        int time = 0;
 
-    //}
+        List<GridData<GridObject>> gridData = new List<GridData<GridObject>>();
+        clone.SetData(gridData);
+        int move = FindMoves(clone).Count;
+
+        while (move <= 0 && time <= 20)
+        {
+            time++;
+            gridData = GenerateGridData(clone.Columns, clone.Rows, data);
+            clone.SetData(gridData);
+            move = FindMoves(clone).Count;
+        }
+
+        grid.SetData(gridData);
+    }
+
+    public static List<GridData<GridObject>> GenerateGridData(int columns, int rows, List<DiamondSO> diamonds)
+    {
+        List<GridData<GridObject>> list = new List<GridData<GridObject>>();
+
+        for (int c = 0; c < columns; c++)
+        {
+            for (int r = 0; r < rows; r++)
+            {
+                GridData<GridObject> data = new GridData<GridObject>()
+                {
+                    GridPosition = new GridPosition(c, r),
+                    Value = new GridObject(NETUltilities.GetRandomInt(0, diamonds.Count))
+                };
+                
+                data.Value.GridPosition = new GridPosition(c, r);
+                list.Add(data);
+            }
+        }
+
+        return list;
+    }
+
+    public static BestMove FindBestMove(CustomizedGrid<GridObject> grid)
+    {
+        BestMove bestMove = new BestMove();
+        List<Move> moves = FindMoves(grid);
+
+        foreach (Move move in moves)
+        {
+            if (bestMove.ResultLength < move.GetMatch().MatchedGridPositions.Count)
+            {
+                bestMove.From = move.From;
+                bestMove.To = move.To;
+                bestMove.Result.Clear();
+
+                foreach (var item in move.GetMatch().MatchedGridPositions)
+                {
+                    if (item == move.From)
+                        bestMove.Result.Add(move.To);
+                    else if (item == move.To)
+                        bestMove.Result.Add(move.From);
+                    else
+                        bestMove.Result.Add(item);
+                }
+            }
+        }
+
+        return bestMove;
+    }
+
+    private static void MergeResult(List<MatchResult> mrl)
+    {
+        UnionFind unionFind = new UnionFind(mrl.Count);
+
+        Dictionary<GridPosition, int> positionToRoot = new(); 
+        for (int currentRoot = 0; currentRoot < mrl.Count; currentRoot++) // kiem tra Position da xuat hien chua
+        {
+            foreach (var pos in mrl[currentRoot].MatchedGridPositions)
+            {
+                if (!positionToRoot.TryGetValue(pos, out int oldRoot))
+                   positionToRoot[pos] = currentRoot;
+                else
+                    unionFind.Union(currentRoot, oldRoot);
+            }
+        }
+
+        Dictionary<int, List<int>> rootToListChildIndex = new(); //nhom cac matches co cung root lai qua index
+        for (int i = 0; i < mrl.Count; i++)
+        {
+            int root = unionFind.Find(i);
+
+            if (!rootToListChildIndex.ContainsKey(root))
+                rootToListChildIndex[root] = new List<int>();
+
+            rootToListChildIndex[root].Add(i);
+        }
+
+        bool[] isUsed = new bool[mrl.Count];
+        foreach (var intList in rootToListChildIndex.Values) // gop matches;
+        {
+            MatchResult mr = mrl[intList[0]]; // lay ra matches dau tien trong moi nhom de gop;
+            for (int i = 1; i < intList.Count; i++)
+            {
+                mr.MatchedGridPositions.UnionWith(mrl[intList[i]].MatchedGridPositions);
+            }
+            isUsed[intList[0]] = true;
+        }
+
+        for (int i = mrl.Count - 1; i >= 0; i--) // bo matches da gop vao mathes khac
+        {
+            if (!isUsed[i])
+                mrl.RemoveAt(i);
+        }
+    }
+
+    public static Move FindMove(CustomizedGrid<GridObject> grid, GridPosition from, GridPosition to)
+    {
+        Move move = new();
+        grid.Swap(from, to);
+
+        move.From = from;
+        move.To = to;
+
+        move.Results.AddRange(CheckLine(grid, from.Column, LineDirection.Vertical));
+        move.Results.AddRange(CheckLine(grid, from.Row, LineDirection.Horizontal));
+
+        move.Results.AddRange(CheckLine(grid, to.Column, LineDirection.Vertical));
+        move.Results.AddRange(CheckLine(grid, to.Row, LineDirection.Horizontal));
+
+        MergeResult(move.Results);
+
+        grid.Swap(from, to);
+
+        return move;
+    }
+
+    public static List<Move> FindMoves(CustomizedGrid<GridObject> grid)
+    {
+        List<Move> possibleMoves = new List<Move>();
+
+        for (int column = 0; column < grid.Columns; column++)
+        {
+            for (int row = 0; row < grid.Rows; row++)
+            {
+                GridPosition currentPosition = new GridPosition(column, row);
+                GridPosition targetPosition = new GridPosition();
+
+                targetPosition = currentPosition.GetRight();
+                Move moveA = FindMove(grid, currentPosition, targetPosition);
+                if(moveA.MatchCount > 0)
+                    possibleMoves.Add(moveA);
+
+                targetPosition = currentPosition.GetUp();
+                Move moveB = FindMove(grid, currentPosition, targetPosition);
+                if (moveB.MatchCount > 0)
+                    possibleMoves.Add(moveB);
+            }
+        }
+
+        return possibleMoves;
+    }
 
     public static List<MatchResult> CheckLine(CustomizedGrid<GridObject> grid, int line, LineDirection lineDirection)
     {
@@ -35,24 +192,35 @@ public static class Match3Logic
                 continue;
             }
 
-            int typeOfCurrent = 0;
-            int typeOfStart = 0;
+            GridObject startObj = null;
+            GridObject currentObj = null;
 
             switch (lineDirection)
             {
                 case LineDirection.Vertical:
-                    typeOfCurrent = grid.Get(new GridPosition(line, start)).ItemType;
-                    typeOfStart = grid.Get(new GridPosition(line, current)).ItemType;
+                    grid.TryGet(new GridPosition(line, start), out startObj);
+                    grid.TryGet(new GridPosition(line, current), out currentObj);
 
                 break;
                 case LineDirection.Horizontal:
-                    typeOfCurrent = grid.Get(new GridPosition(start, line)).ItemType;
-                    typeOfStart = grid.Get(new GridPosition(current, line)).ItemType;
+                    grid.TryGet(new GridPosition(start, line), out startObj);
+                    grid.TryGet(new GridPosition(current, line), out currentObj);
 
                 break;
             }
 
-            if (typeOfCurrent == typeOfStart)
+            if (startObj == null || currentObj == null)
+            {
+                if (current - start >= 3)
+                {
+                    mrl.Add(CreateMatchResult(start, current, line, lineDirection));
+                }
+                start = current;
+                current++;
+                continue;
+            }
+
+            if (startObj.ItemType == currentObj.ItemType)
             {
                 current++;
                 continue;
@@ -111,6 +279,7 @@ public static class Match3Logic
                 {
                     GridObject = tmp,
                     Position = gridPos.PositionOffset,
+                    ObjectType = tmp.ItemType
                 }
             );
 

@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
 
@@ -12,11 +11,6 @@ public class DiamondVisual : MonoBehaviour
     {
         _transform = GetComponent<Transform>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
-    }
-
-    public void Spawn(Vector3 position)
-    {
-        _transform.position = position;
     }
 
     public void SetActive(bool isActive)
@@ -48,6 +42,11 @@ public class DiamondVisual : MonoBehaviour
     public Tween Rotate(Vector3 endValue, float duration, Ease ease = Ease.Linear)
     {
         return _transform.DORotate(endValue,duration).SetEase(ease);
+    }
+
+    public Tween Scale(Vector3 endValue, float duration, AnimationCurve curve)
+    {
+        return _transform.DOScale(endValue, duration).SetEase(curve);
     }
 
 }
